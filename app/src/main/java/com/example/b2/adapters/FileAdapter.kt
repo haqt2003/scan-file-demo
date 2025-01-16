@@ -28,13 +28,26 @@ class FileAdapter(private var items: MutableList<FileData>) :
         fun bind(file: FileData) {
             binding.tvName.text = file.name
             binding.tvPath.text = file.path
-            binding.tvSize.text = file.size + "KB"
+            binding.tvSize.text = formatSize(file.size.toLong())
             when (file.type) {
                 "jpg", "jpeg", "png", "gif" -> binding.ivType.setImageResource(R.drawable.ic_image)
                 "mp3", "wav", "flac", "aac" -> binding.ivType.setImageResource(R.drawable.ic_music)
                 "mp4", "mkv", "mov", "avi" -> binding.ivType.setImageResource(R.drawable.ic_video)
                 "pdf", "doc", "docx", "txt" -> binding.ivType.setImageResource(R.drawable.ic_document)
                 else -> binding.ivType.setImageResource(R.drawable.ic_file)
+            }
+        }
+
+        private fun formatSize(size: Long): String {
+            val kb = size / 1024.0
+            val mb = kb / 1024.0
+            val gb = mb / 1024.0
+
+            return when {
+                gb >= 1 -> String.format("%.2f GB", gb)
+                mb >= 1 -> String.format("%.2f MB", mb)
+                kb >= 1 -> String.format("%.2f KB", kb)
+                else -> String.format("%d B", size)
             }
         }
     }

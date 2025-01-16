@@ -117,7 +117,6 @@ class MainActivity : AppCompatActivity() {
 
     private suspend fun scanFiles(directory: File) {
         directory.listFiles()?.forEach { file ->
-            delay(1000L)
             if (file.isDirectory) {
                 scanFiles(file)
             } else {
@@ -134,6 +133,7 @@ class MainActivity : AppCompatActivity() {
                         binding.rvFiles.scrollToPosition(0)
                         binding.tvCount.text = "File scanned: ${items.size}"
                     }
+                    delay(1000L)
                 }
             }
         }
@@ -150,9 +150,16 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun formatSize(size: Long): String {
-        val mb = size / 1024 / 1024
-        val gb = size / 1024 / 1024 / 1024
-        return "${gb}GB"
+        val kb = size / 1024.0
+        val mb = kb / 1024.0
+        val gb = mb / 1024.0
+
+        return when {
+            gb >= 1 -> String.format("%.2f GB", gb)
+            mb >= 1 -> String.format("%.2f MB", mb)
+            kb >= 1 -> String.format("%.2f KB", kb)
+            else -> String.format("%d B", size)
+        }
     }
 
     private fun checkPermission(): Boolean {
