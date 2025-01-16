@@ -28,11 +28,12 @@ class FileAdapter(private var items: MutableList<FileData>) :
         fun bind(file: FileData) {
             binding.tvName.text = file.name
             binding.tvPath.text = file.path
-            binding.tvSize.text = file.size
+            binding.tvSize.text = file.size + "KB"
             when (file.type) {
-                "jpg, jpeg, png, gif" -> binding.ivType.setImageResource(R.drawable.ic_image)
-                "mp3, wav, flac, aac" -> binding.ivType.setImageResource(R.drawable.ic_music)
-                "mp4, mkv, mov, avi" -> binding.ivType.setImageResource(R.drawable.ic_video)
+                "jpg", "jpeg", "png", "gif" -> binding.ivType.setImageResource(R.drawable.ic_image)
+                "mp3", "wav", "flac", "aac" -> binding.ivType.setImageResource(R.drawable.ic_music)
+                "mp4", "mkv", "mov", "avi" -> binding.ivType.setImageResource(R.drawable.ic_video)
+                "pdf", "doc", "docx", "txt" -> binding.ivType.setImageResource(R.drawable.ic_document)
                 else -> binding.ivType.setImageResource(R.drawable.ic_file)
             }
         }

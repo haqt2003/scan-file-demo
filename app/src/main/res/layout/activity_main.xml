@@ -24,7 +24,7 @@
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            android:text="Free: 20MB"
+            android:text="Free: --"
             android:textColor="@color/black"/>
 
         <androidx.appcompat.widget.AppCompatTextView
@@ -35,7 +35,7 @@
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
-            android:text="Memory: 50MB"
+            android:text="Memory: --"
             android:textColor="@color/black"
             android:textAlignment="center"/>
 
@@ -46,7 +46,7 @@
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
-            android:text="File scanned: 99"
+            android:text="File scanned: 0"
             android:textColor="@color/black"
             android:textAlignment="textEnd"/>
 

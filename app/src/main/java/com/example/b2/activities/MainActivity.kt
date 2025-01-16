@@ -1,11 +1,19 @@
 package com.example.b2.activities
 
+import android.Manifest
 import android.annotation.SuppressLint
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.os.Environment
-import android.util.Log
+import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -16,6 +24,7 @@ import com.example.b2.models.FileData
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -31,6 +40,16 @@ class MainActivity : AppCompatActivity() {
 
     private var job: Job? = null
 
+    private val storageActivityResultLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == RESULT_OK) {
+                startScan()
+            } else {
+                Toast.makeText(this, "Quyền chưa được cấp - N", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+    @RequiresApi(Build.VERSION_CODES.R)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -42,11 +61,25 @@ class MainActivity : AppCompatActivity() {
         }
 
         adapter = FileAdapter(items)
+        binding.rvFiles.adapter = adapter
+        binding.rvFiles.layoutManager = LinearLayoutManager(this@MainActivity)
+
+        val resultPermission = checkPermission()
+        if (resultPermission) {
+            startScan()
+            binding.btPause.isEnabled = true
+            binding.btScan.isEnabled = false
+            binding.btScan.setBackgroundColor(getColor(R.color.grey))
+            binding.btPause.setBackgroundColor(getColor(R.color.red))
+        } else {
+            binding.btPause.isEnabled = false
+            binding.btScan.isEnabled = true
+            binding.btScan.setBackgroundColor(getColor(R.color.green))
+            binding.btPause.setBackgroundColor(getColor(R.color.grey))
+            requestPermission()
+        }
 
         with(binding) {
-            rvFiles.adapter = adapter
-            rvFiles.layoutManager = LinearLayoutManager(this@MainActivity)
-
             btPause.setOnClickListener {
                 btPause.isEnabled = false
                 btScan.isEnabled = true
@@ -56,15 +89,17 @@ class MainActivity : AppCompatActivity() {
             }
 
             btScan.setOnClickListener {
-                btPause.isEnabled = true
-                btScan.isEnabled = false
-                btScan.setBackgroundColor(getColor(R.color.grey))
-                btPause.setBackgroundColor(getColor(R.color.red))
-                startScan()
+                if (checkPermission()) {
+                    btPause.isEnabled = true
+                    btScan.isEnabled = false
+                    btScan.setBackgroundColor(getColor(R.color.grey))
+                    btPause.setBackgroundColor(getColor(R.color.red))
+                    startScan()
+                } else {
+                    requestPermission()
+                }
             }
         }
-
-        startScan()
     }
 
     @SuppressLint("SetTextI18n")
@@ -82,6 +117,7 @@ class MainActivity : AppCompatActivity() {
 
     private suspend fun scanFiles(directory: File) {
         directory.listFiles()?.forEach { file ->
+            delay(1000L)
             if (file.isDirectory) {
                 scanFiles(file)
             } else {
@@ -91,15 +127,19 @@ class MainActivity : AppCompatActivity() {
                     type = file.extension,
                     size = file.length().toString()
                 )
-                withContext(Dispatchers.Main) {
-                    items.add(0, fileData)
-                    adapter.notifyItemInserted(0)
-                    binding.tvCount.text = "File scanned: ${items.size}"
+                if (items.none { it.path == fileData.path }) {
+                    withContext(Dispatchers.Main) {
+                        items.add(0, fileData)
+                        adapter.notifyItemInserted(0)
+                        binding.rvFiles.scrollToPosition(0)
+                        binding.tvCount.text = "File scanned: ${items.size}"
+                    }
                 }
             }
         }
     }
 
+    @SuppressLint("SetTextI18n")
     private suspend fun getStorageInfo() {
         val freeSpace = Environment.getExternalStorageDirectory().freeSpace
         val totalSpace = Environment.getExternalStorageDirectory().totalSpace
@@ -114,4 +154,62 @@ class MainActivity : AppCompatActivity() {
         val gb = size / 1024 / 1024 / 1024
         return "${gb}GB"
     }
+
+    private fun checkPermission(): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            return Environment.isExternalStorageManager()
+        } else {
+            val write =
+                ActivityCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            val read =
+                ActivityCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
+
+            return write == PackageManager.PERMISSION_GRANTED && read == PackageManager.PERMISSION_GRANTED
+        }
+    }
+
+    private fun requestPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            runCatching {
+                val intent = Intent()
+                intent.action = Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION
+                val uri = android.net.Uri.fromParts("package", packageName, null)
+                intent.data = uri
+                storageActivityResultLauncher.launch(intent)
+            }.onFailure {
+                val intent = Intent()
+                intent.action = Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION
+                storageActivityResultLauncher.launch(intent)
+            }
+        } else {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(
+                    Manifest.permission.READ_EXTERNAL_STORAGE,
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE
+                ),
+                100
+            )
+        }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 100) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                startScan()
+                binding.btPause.isEnabled = true
+                binding.btScan.isEnabled = false
+                binding.btScan.setBackgroundColor(getColor(R.color.grey))
+                binding.btPause.setBackgroundColor(getColor(R.color.red))
+            } else {
+                Toast.makeText(this, "Quyền chưa được cấp - O", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
 }
