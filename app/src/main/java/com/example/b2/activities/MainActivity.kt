@@ -37,6 +37,9 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var adapter: FileAdapter
     private val items = mutableListOf<FileData>()
+    private val itemsCheck = mutableListOf<FileData>()
+
+    private var isScanned = false
 
     private var job: Job? = null
 
@@ -67,6 +70,7 @@ class MainActivity : AppCompatActivity() {
         val resultPermission = checkPermission()
         if (resultPermission) {
             startScan()
+            startScanCheck()
             binding.btPause.isEnabled = true
             binding.btScan.isEnabled = false
             binding.btScan.setBackgroundColor(getColor(R.color.grey))
@@ -94,6 +98,14 @@ class MainActivity : AppCompatActivity() {
                     btScan.isEnabled = false
                     btScan.setBackgroundColor(getColor(R.color.grey))
                     btPause.setBackgroundColor(getColor(R.color.red))
+                    if (isScanned) {
+                        btScan.text = "Continue Scanning"
+                        items.clear()
+                        adapter.notifyDataSetChanged()
+                        itemsCheck.clear()
+                        isScanned = false
+                        startScanCheck()
+                    }
                     startScan()
                 } else {
                     requestPermission()
@@ -115,6 +127,13 @@ class MainActivity : AppCompatActivity() {
         job?.cancel()
     }
 
+    private fun startScanCheck() {
+        CoroutineScope(Dispatchers.IO).launch {
+            val rootDir = File(Environment.getExternalStorageDirectory().absolutePath)
+            scanFilesCheck(rootDir)
+        }
+    }
+
     private suspend fun scanFiles(directory: File) {
         directory.listFiles()?.forEach { file ->
             if (file.isDirectory) {
@@ -134,6 +153,36 @@ class MainActivity : AppCompatActivity() {
                         binding.tvCount.text = "File scanned: ${items.size}"
                     }
                     delay(1000L)
+                }
+            }
+        }
+        if (items.size == itemsCheck.size) {
+            withContext(Dispatchers.Main) {
+                isScanned = true
+                binding.btPause.isEnabled = false
+                binding.btScan.isEnabled = true
+                binding.btScan.setBackgroundColor(getColor(R.color.green))
+                binding.btScan.text = "Restart Scanning"
+                binding.btPause.setBackgroundColor(getColor(R.color.grey))
+            }
+        }
+    }
+
+    private suspend fun scanFilesCheck(directory: File) {
+        directory.listFiles()?.forEach { file ->
+            if (file.isDirectory) {
+                scanFilesCheck(file)
+            } else {
+                val fileData = FileData(
+                    name = file.name,
+                    path = file.path,
+                    type = file.extension,
+                    size = file.length().toString()
+                )
+                if (itemsCheck.none { it.path == fileData.path }) {
+                    withContext(Dispatchers.Main) {
+                        itemsCheck.add(0, fileData)
+                    }
                 }
             }
         }
